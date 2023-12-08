@@ -1,124 +1,74 @@
-﻿using System.Security.Cryptography.X509Certificates;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 string path = @"input.txt";
 
 
 var lines = File.ReadAllLines(path);
 
+var directionIndex = new Dictionary<char, int>()
+{
+    {'L', 0},
+    {'R', 1}
+};
+
+var adjList = new Dictionary<string, string[]>();
+var directions = lines[0];
+
+for (int i = 2; i < lines.Length; i++)
+{
+    var line = lines[i];
+    var l = line.Split("=");
+    string node = l[0].Trim();
+
+    var edges = l[1].Trim().Replace("(", "").Replace(")", "").Split(',', StringSplitOptions.TrimEntries);
+    adjList[node] = edges;
+}
+
+// System.Console.WriteLine(adjList.Count); 802
+
 long ans = 0;
+var inProgress = adjList.Keys.Where(k => k.EndsWith('A')).ToArray();
+System.Console.WriteLine(inProgress.Length);
+var dp = new Dictionary<string, HashSet<int>>();
 
-var hands = new List<(Hand hand, long bid)>();
 
-foreach (var line in lines)
+foreach (var item in inProgress)
 {
-    var s = line.Split();
-
-    hands.Add((new Hand(s[0]), Int64.Parse(s[1])));
-}
-
-
-hands = hands.OrderBy(h => h.hand).ToList();
-
-// System.Console.WriteLine(String.Join(" ", hands));
-
-for (int i = 0; i < hands.Count; i++)
-{
-    ans += (i + 1) * hands[i].bid;
-}
-
-System.Console.WriteLine(ans);
+    string node = item;
+    var zSteps = new HashSet<long>();
+    long step = 0;
 
 
-
-
-
-
-class Hand : IComparable<Hand>
-{
-    public string Value { get; set; }
-
-
-    public Hand(string value)
+    for (int i = 0; i < directions.Length; i = (i + 1) % directions.Length)
     {
-        Value = value;
+        if (node.EndsWith('Z'))
+            zSteps.Add(step);
 
-        var count = new Dictionary<char, int>();
-        foreach (var c in value)
+        if (zSteps.Count == inProgress.Length)
         {
-            count[c] = count.GetValueOrDefault(c) + 1;
+            System.Console.WriteLine("Found all");
+            break;
+        }
+        if (dp.ContainsKey(node) && dp[node].Contains(i))
+        {
+            System.Console.WriteLine("That is a cycle bro");
+            System.Console.WriteLine((node, i));
+            break;
         }
 
-        if (count.ContainsKey(joker) && count.Count > 1)
-        {
-            // System.Console.WriteLine("found joker");
-            int jokerCount = count[joker];
-            count.Remove(joker);
-
-            var largestKey = count.Keys.MaxBy(k => count[k]);
-            count[largestKey] += jokerCount;
-        }
-
-        this.type = String.Join("", count.Values.OrderByDescending(v => v));
-        // System.Console.WriteLine((value, type));
+        if (!dp.ContainsKey(node))
+            dp[node] = new();
         
-        if (!typePower.ContainsKey(type))
-            throw new InvalidDataException($"The give value doesn't have an equvilant power {type}");
+        dp[node].Add(i);
 
+
+        char direction = directions[i];
+        node = adjList[node][directionIndex[direction]];
+        step++;
     }
 
-    private string type;
-
-    private static char joker = 'J';
-    private static Dictionary<string, int> typePower = new Dictionary<string, int>
-    {
-        {"11111", 0},
-        {"2111", 1},
-        {"221", 2},
-        {"311", 3},
-        {"32", 4},
-        {"41", 5},
-        {"5", 6},
-    };
-
-    private static Dictionary<char, int> cardPower = new Dictionary<char, int>
-    {
-        {'J', -1},
-        {'2', 0},
-        {'3', 1},
-        {'4', 2},
-        {'5', 3},
-        {'6', 4},
-        {'7', 5},
-        {'8', 6},
-        {'9', 7},
-        {'T', 8},
-        {'Q', 10},
-        {'K', 11},
-        {'A', 12},
-    };
-
-    public int CompareTo(Hand? other)
-    {
-        if (other is null)
-            return -1;
-
-        if (typePower[this.type] == typePower[other.type])
-        {
-            for (int i = 0; i < this.Value.Length; i++)
-            {
-                if (this.Value[i] == other.Value[i])
-                    continue;
-
-                return cardPower[this.Value[i]].CompareTo(cardPower[other.Value[i]]);
-            }
-        }
-
-        return typePower[this.type].CompareTo(typePower[other.type]);
-    }
-
-    public override string ToString()
-    {
-        return this.Value;
-    }
+    System.Console.WriteLine(String.Join(" ", zSteps));
 }
+
+// this problem is not well descriped
+System.Console.WriteLine(ans);
