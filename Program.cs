@@ -1,26 +1,4 @@
-﻿using System.Diagnostics;
-using System.Text.RegularExpressions;
-using System.Transactions;
-
-
-(int i, int j) UP =   (-1, 0);
-(int i, int j) DOWN = (1, 0);
-(int i, int j) LEFT = (0, -1);
-(int i, int j) RIGHT = (0, 1);
-
-
-var transitions = new Dictionary<char, (int i, int j)[]>()
-{
-    {'|', [DOWN, UP]},
-    {'-', [LEFT, RIGHT]},
-    {'L', [UP, RIGHT]},
-    {'J', [UP, LEFT]},
-    {'7', [DOWN, LEFT]},
-    {'F', [DOWN, RIGHT]},
-    {'S', [DOWN, UP, LEFT, RIGHT]},
-};
-
-
+﻿using System.Globalization;
 
 string path = @"input.txt";
 
@@ -31,65 +9,65 @@ int n = mat.Length;
 int m = mat[0].Length;
 long ans = 0;
 
-var visited = new bool[n, m];
-var start = GetStartIndex(mat);
+const long factor = 1000000;
+var galaxies = new List<(int i, int j)>();
 
-Dfs(start.i, start.j, (-1, -1), 0);
+for (int i = 0; i < n; i++)
+{
+    for (int j = 0; j < m; j++)
+    {
+        if (mat[i][j] == '#')
+            galaxies.Add((i, j));
+    }
+}
 
+
+// (x, y) = prefix[x + 1] - preifx[y]
+var prefixColumn = new long[m + 1];
+var prefixRows = new long[n + 1];
+
+for (int j = 0; j < m; j++)
+{
+    prefixColumn[j + 1] = prefixColumn[j];
+    if (Enumerable.Range(0, n).All(i => mat[i][j] == '.'))
+    {
+        prefixColumn[j + 1]++;
+    }
+    
+}
+
+for (int i = 0; i < n; i++)
+{
+    prefixRows[i + 1] = prefixRows[i];
+    if (mat[i].All(item => item == '.'))
+    {
+        prefixRows[i + 1]++;
+    }
+}
+
+
+for (int i = 0; i < galaxies.Count; i++)
+{
+    var g1 = galaxies[i];
+    for (int j = i + 1; j < galaxies.Count; j++)
+    {
+        var g2 = galaxies[j];
+        long distance = Math.Abs(g1.i - g2.i) + Math.Abs(g1.j - g2.j);
+
+        distance += GetPrefix(g1.j, g2.j, prefixColumn);
+        distance += GetPrefix(g1.i, g2.i, prefixRows);
+
+        ans += distance;
+    }
+}
 System.Console.WriteLine(ans);
 
-
-
-
-
-
-
-void Dfs(int i, int j, (int i, int j) parent, int order)
+long GetPrefix(int x, int y, long[] prefix)
 {
-    visited[i, j] = true;
-    char val = mat[i][j];
-
-    if (!transitions.ContainsKey(val))
-        return;
-    // System.Console.WriteLine((val, i, j));
-
-    foreach (var trans in transitions[val])
+    if (x < y)
     {
-        (int i, int j) next = (trans.i + i, trans.j + j);
-
-        if (next.i < 0 || next.i >= n || next.j < 0 || next.j >= m)
-            continue;
-        // System.Console.WriteLine(next);
-        // System.Console.WriteLine(visited[next.i, next.j]);
-
-        if (visited[next.i, next.j] && parent != next && next == start)
-        {
-            long score = order / 2;
-            score += order % 2 == 0 ? 0 : 1;
-            ans = Math.Max(score, ans);
-        }
-
-        if (!visited[next.i, next.j])
-            Dfs(next.i, next.j, (i, j), order + 1);
+        (x, y) = (y, x);
     }
 
-
+    return ((prefix[x + 1] - prefix[y])*factor) - (prefix[x + 1] - prefix[y]);
 }
-
-
-
-(int i, int j) GetStartIndex(char[][] mat)
-{
-    for (int i = 0; i < mat.Length; i++)
-    {
-        for (int j = 0; j < mat.Length; j++)
-        {
-            if (mat[i][j] == 'S')
-                return (i, j);
-        }
-    }
-
-    throw new UnreachableException();
-}
-
-
