@@ -1,73 +1,81 @@
-﻿using System.Globalization;
-
-string path = @"input.txt";
+﻿string path = @"input.txt";
 
 
 var lines = File.ReadAllLines(path);
-var mat = lines.Select(line => line.ToCharArray()).ToArray();
-int n = mat.Length;
-int m = mat[0].Length;
+
 long ans = 0;
-
-const long factor = 1000000;
-var galaxies = new List<(int i, int j)>();
-
-for (int i = 0; i < n; i++)
+foreach (var line in lines)
 {
-    for (int j = 0; j < m; j++)
-    {
-        if (mat[i][j] == '#')
-            galaxies.Add((i, j));
-    }
-}
-
-
-// (x, y) = prefix[x + 1] - preifx[y]
-var prefixColumn = new long[m + 1];
-var prefixRows = new long[n + 1];
-
-for (int j = 0; j < m; j++)
-{
-    prefixColumn[j + 1] = prefixColumn[j];
-    if (Enumerable.Range(0, n).All(i => mat[i][j] == '.'))
-    {
-        prefixColumn[j + 1]++;
-    }
+    var splitedLine = line.Split();
+    var symbols = splitedLine[0];
+    var groups = splitedLine[1].Split(',').Select(num => Int32.Parse(num)).ToArray();
     
-}
+    symbols = String.Join('?', Enumerable.Repeat(symbols, 5));
+    groups = Enumerable.Repeat(groups, 5).SelectMany(x => x).ToArray();
 
-for (int i = 0; i < n; i++)
-{
-    prefixRows[i + 1] = prefixRows[i];
-    if (mat[i].All(item => item == '.'))
+    
+    int n = groups.Length;
+    int m = symbols.Length;
+
+    var dp = new long?[n, m];
+    var suffixBounds = new int[m + 2];
+    for (int i = m - 1; i >= 0; i--)
     {
-        prefixRows[i + 1]++;
+        suffixBounds[i] = suffixBounds[i + 1];
+
+        if (symbols[i] == '#')
+            suffixBounds[i]++;
     }
+
+    ans += Dfs(0, 0, symbols, groups, suffixBounds, dp);
+
 }
 
 
-for (int i = 0; i < galaxies.Count; i++)
-{
-    var g1 = galaxies[i];
-    for (int j = i + 1; j < galaxies.Count; j++)
-    {
-        var g2 = galaxies[j];
-        long distance = Math.Abs(g1.i - g2.i) + Math.Abs(g1.j - g2.j);
-
-        distance += GetPrefix(g1.j, g2.j, prefixColumn);
-        distance += GetPrefix(g1.i, g2.i, prefixRows);
-
-        ans += distance;
-    }
-}
 System.Console.WriteLine(ans);
 
-long GetPrefix(int x, int y, long[] prefix)
+long Dfs(int index, int gIdx, string symbols, int[] groups, int[] suffix, long?[,] dp)
 {
-    if (x < y)
+    if (gIdx >= groups.Length)
     {
-        (x, y) = (y, x);
+        return suffix[index] == 0 ? 1 : 0;
     }
 
-    return ((prefix[x + 1] - prefix[y])*factor) - (prefix[x + 1] - prefix[y]);
+    if (index >= symbols.Length)
+        return 0;
+
+    if (dp[gIdx, index] is not null)
+        return (long) dp[gIdx, index]!;
+
+    var g = groups[gIdx];
+    long curAnswer = 0;
+    for (int i = index; i < symbols.Length; i++)
+    {
+        if (i > index && symbols[i - 1] == '#')
+            break;
+        
+        if (CanTake(symbols, i, g))
+        {
+            // System.Console.WriteLine(("can take", i, gIdx));
+            curAnswer += Dfs(i + g + 1, gIdx + 1, symbols, groups, suffix, dp);
+        }
+
+    }
+
+    dp[gIdx, index] = curAnswer;
+    return curAnswer;
+}
+
+bool CanTake(string line, int j, int group)
+{
+    if (j + group - 1 >= line.Length)
+        return false;
+
+    if (j != 0 && line[j - 1] == '#')
+        return false;
+
+    if (j + group < line.Length && line[j + group] == '#')
+        return false;
+
+    return Enumerable.Range(j, group).Count(i => line[i] == '?' || line[i] == '#') == group;
 }
