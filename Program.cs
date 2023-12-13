@@ -2,80 +2,114 @@
 
 
 var lines = File.ReadAllLines(path);
-
 long ans = 0;
-foreach (var line in lines)
+
+var mat = new List<char[]>();
+
+for (int i = 0; i < lines.Length; i++)
 {
-    var splitedLine = line.Split();
-    var symbols = splitedLine[0];
-    var groups = splitedLine[1].Split(',').Select(num => Int32.Parse(num)).ToArray();
-    
-    symbols = String.Join('?', Enumerable.Repeat(symbols, 5));
-    groups = Enumerable.Repeat(groups, 5).SelectMany(x => x).ToArray();
+    string line = lines[i];
 
-    
-    int n = groups.Length;
-    int m = symbols.Length;
-
-    var dp = new long?[n, m];
-    var suffixBounds = new int[m + 2];
-    for (int i = m - 1; i >= 0; i--)
+    if (String.IsNullOrEmpty(line.Trim()) || i == lines.Length - 1)
     {
-        suffixBounds[i] = suffixBounds[i + 1];
-
-        if (symbols[i] == '#')
-            suffixBounds[i]++;
+        ans += SolvePatern(mat);
+        mat = new List<char[]>();
+        continue;
     }
 
-    ans += Dfs(0, 0, symbols, groups, suffixBounds, dp);
+    mat.Add(line.ToCharArray());
 
 }
-
-
 System.Console.WriteLine(ans);
 
-long Dfs(int index, int gIdx, string symbols, int[] groups, int[] suffix, long?[,] dp)
+long SolvePatern(List<char[]> mat)
 {
-    if (gIdx >= groups.Length)
+    int n = mat.Count;
+    int m = mat[0].Length;
+    long res = 0;
+
+    for (int j = 1; j < m; j++)
     {
-        return suffix[index] == 0 ? 1 : 0;
+        if (IsMirroredH(j, mat))
+            return j;
     }
 
-    if (index >= symbols.Length)
-        return 0;
-
-    if (dp[gIdx, index] is not null)
-        return (long) dp[gIdx, index]!;
-
-    var g = groups[gIdx];
-    long curAnswer = 0;
-    for (int i = index; i < symbols.Length; i++)
+    for (int i = 1; i < n; i++)
     {
-        if (i > index && symbols[i - 1] == '#')
-            break;
-        
-        if (CanTake(symbols, i, g))
-        {
-            // System.Console.WriteLine(("can take", i, gIdx));
-            curAnswer += Dfs(i + g + 1, gIdx + 1, symbols, groups, suffix, dp);
-        }
-
+        if (IsMirroredV(i, mat))
+            return i * 100;
     }
 
-    dp[gIdx, index] = curAnswer;
-    return curAnswer;
+    return res;
 }
 
-bool CanTake(string line, int j, int group)
+
+bool IsMirroredH(int c, List<char[]> mat)
 {
-    if (j + group - 1 >= line.Length)
-        return false;
+    int m = mat[0].Length;
 
-    if (j != 0 && line[j - 1] == '#')
-        return false;
+    int numColums = Math.Min(c, m - c);
+    int start = c - numColums;
+    int end = c + numColums - 1;
 
-    if (j + group < line.Length && line[j + group] == '#')
-        return false;
+    bool alreadySmuged = false;
 
-    return Enumerable.Range(j, group).Count(i => line[i] == '?' || line[i] == '#') == group;
+    foreach (var row in mat)
+    {
+        string before = String.Join("", row[start..c]);
+        string after = String.Join("", row[c..(end + 1)].Reverse());
+
+        if (before != after)
+        {
+            if (alreadySmuged)
+                return false;
+
+            if (!Smudgable(before, after))
+                return false;
+
+            alreadySmuged = true;
+        }
+    }
+
+    return alreadySmuged;
+}
+
+
+bool IsMirroredV(int r, List<char[]> mat)
+{
+    int n = mat.Count;
+    int m = mat[0].Length;
+
+    int numRows = Math.Min(r, n - r);
+    int start = r - numRows;
+    int end = r + numRows - 1;
+
+    bool alreadySmuged = false;
+
+    for (int j = 0; j < m; j++)
+    {
+        string before = String.Join("", Enumerable.Range(start, numRows).Select(index => mat[index][j]));
+        string after = String.Join("", Enumerable.Range(r, numRows).Select(index => mat[index][j]).Reverse());
+
+        if (before != after)
+        {
+            if (alreadySmuged)
+                return false;
+
+            if (!Smudgable(before, after))
+                return false;
+
+            alreadySmuged = true;
+        }
+    }
+
+    return alreadySmuged;
+}
+
+
+bool Smudgable(string a, string b)
+{
+    int n = a.Length;
+
+    return Enumerable.Range(0, n).Count(i => a[i] != b[i]) == 1;
 }
