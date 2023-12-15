@@ -3,104 +3,133 @@
 
 var lines = File.ReadAllLines(path);
 
-var mat = lines.Select(line => line.ToCharArray()).ToArray();
-
-int n = mat.Length;
-int m = mat[0].Length;
-
+const int LEN = 256;
+var steps = lines[0].Split(",");
 long ans = 0;
-long limit = (long) 1e9;
-var statesToIndex = new Dictionary<string, long>();
 
-long numCycles = 1;
 
-while (numCycles <= limit)
+var map = new LinkedList<Step>[LEN];
+for (int i = 0; i < LEN; i++)
 {
-    var matCopy = mat.Select(row => row.ToArray()).ToArray();
-    var matState = String.Join(" ", matCopy.Select(row => String.Join("", row)));
-
-
-    if (statesToIndex.ContainsKey(matState))
-    {
-        long begIndex = statesToIndex[matState];
-        long repeatLen = numCycles - begIndex;
-        numCycles += ((limit - numCycles + 1) / repeatLen) * repeatLen;
-    }
-
-    statesToIndex[matState] = numCycles;
-
-    DoCycle(matCopy);
-
-    mat = matCopy;    
-    numCycles++;
+    map[i] = new();
 }
 
 
-for (int i = 0; i < n; i++)
+foreach (var s in steps)
 {
-    for (int j = 0; j < m; j++)
+    var splitedStep = s.Split(new char[] { '=', '-' }, StringSplitOptions.RemoveEmptyEntries);
+    string label = splitedStep[0];
+    long lens = splitedStep.Length == 1 ? -1 : Int64.Parse(splitedStep[1]);
+
+    var step = new Step(label, lens);
+    
+    if (splitedStep.Length == 1)
+        Remove(step);
+    else
+        AddOrOverWrite(step);
+
+}
+
+
+for (int i = 0; i < LEN; i++)
+{
+    var slots = map[i];
+    int ord = 1;
+    foreach (var step in slots)
     {
-        if (mat[i][j] == 'O')
-            ans += n - i;
+        ans += (i + 1) * ord * step.Lens;
+        ord++;
     }
 }
+
+
+
+
 System.Console.WriteLine(ans);
 
-void DoCycle(char[][] mat)
-{
-    TiltVertical(mat, 0, n, 1);
-    TiltHorizontal(mat, 0, m, 1);
-    TiltVertical(mat, n - 1, -1, -1);
-    TiltHorizontal(mat, m - 1, -1, -1);
-}
 
-// North: begin = 0, end = n, shift = 1
-// South: begin = n - 1, end = -1, shift = -1
-void TiltVertical(char[][] mat, int begin, int end, int shift)
+void AddOrOverWrite(Step step)
 {
-    
-    for (int j = 0; j < m; j++)
+    int boxNum = step.GetHashCode();
+    var slots = map[boxNum];
+
+    foreach (var s in slots)
     {
-        int last = begin;
-        for (int i = begin; i != end; i += shift)
+        if (s == step)
         {
-            var cell = mat[i][j];
-
-            if (cell == 'O')
-            {
-                mat[i][j] = '.';
-                mat[last][j] = 'O';
-                last += shift;
-            }
-            else if (cell == '#')
-            {
-                last = i + shift;
-            }
+            s.Lens = step.Lens;
+            return;
         }
     }
+
+    slots.AddLast(step);
+
 }
 
-// east: begin = m - 1, end = -1, shift = -1
-// west: begin = 0, end = m, shift = 1
-void TiltHorizontal(char[][] mat, int begin, int end, int shift)
+void Remove(Step step)
 {
-    for (int i = 0; i < n; i++)
-    {
-        int last = begin;
-        for (int j = begin; j != end; j += shift)
-        {
-            var cell = mat[i][j];
+    int boxNum = step.GetHashCode();
+    var slots = map[boxNum];
 
-            if (cell == 'O')
-            {
-                mat[i][j] = '.';
-                mat[i][last] = 'O';
-                last += shift;
-            }
-            else if (cell == '#')
-            {
-                last = j + shift;
-            }
+    var temp = slots.First;
+
+    while (temp is not null && temp.Value != step)
+    {
+        temp = temp.Next;
+    }
+
+    if (temp is null)
+        return;
+
+    slots.Remove(temp);
+}
+
+
+
+class Step : IEquatable<Step>
+{
+    public string Label { get; set; }
+    public long Lens { get; set; }
+    public Step(string label, long lens)
+    {
+        Label = label;
+        Lens = lens;
+    }
+
+    private const int MOD = 256;
+
+    public bool Equals(Step? other)
+    {
+        if (other is null)
+            return false;
+
+        return this.Label == other.Label;
+    }
+
+    public override int GetHashCode()
+    {
+        int hashValue = 0;
+        foreach (var c in Label)
+        {
+            hashValue += (int)c;
+            hashValue *= 17;
+            hashValue %= MOD;
         }
+
+        return hashValue;
+    }
+
+    public static bool operator ==(Step step1, Step step2)
+    {
+        return step1.Equals(step2);
+    }
+    public static bool operator !=(Step step1, Step step2)
+    {
+        return !step1.Equals(step2);
+    }
+
+    public override string ToString()
+    {
+        return $"[{this.Label}, {this.Lens}]";
     }
 }
