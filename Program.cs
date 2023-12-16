@@ -2,134 +2,98 @@
 
 
 var lines = File.ReadAllLines(path);
-
-const int LEN = 256;
-var steps = lines[0].Split(",");
 long ans = 0;
+var mat = lines.Select(line => line.ToCharArray()).ToArray();
 
+int n = mat.Length;
+int m = mat[0].Length;
+var visited = new bool[n, m, 4];
 
-var map = new LinkedList<Step>[LEN];
-for (int i = 0; i < LEN; i++)
+var q = new Queue<(int i, int j, Direction direction)>();
+q.Enqueue((0, 0, Direction.RIGHT));
+visited[0, 0, (int) Direction.RIGHT] = true;
+
+while (q.Count != 0)
 {
-    map[i] = new();
-}
+    var curCell = q.Dequeue();
 
+    var nextCells = GetNextCells(curCell);
 
-foreach (var s in steps)
-{
-    var splitedStep = s.Split(new char[] { '=', '-' }, StringSplitOptions.RemoveEmptyEntries);
-    string label = splitedStep[0];
-    long lens = splitedStep.Length == 1 ? -1 : Int64.Parse(splitedStep[1]);
-
-    var step = new Step(label, lens);
-    
-    if (splitedStep.Length == 1)
-        Remove(step);
-    else
-        AddOrOverWrite(step);
-
-}
-
-
-for (int i = 0; i < LEN; i++)
-{
-    var slots = map[i];
-    int ord = 1;
-    foreach (var step in slots)
+    foreach (var cell in nextCells)
     {
-        ans += (i + 1) * ord * step.Lens;
-        ord++;
+        if (!IsValidTransition(cell))
+            continue;
+
+        q.Enqueue(cell);
+        visited[cell.i, cell.j, (int) cell.direction] = true;    
+    }
+
+}
+
+
+for (int i = 0; i < n; i++)
+{
+    for (int j = 0; j < m; j++)
+    { 
+        if (Enumerable.Range(0, 4).Any(d => visited[i, j, d]))
+            ans++;
     }
 }
-
-
-
 
 System.Console.WriteLine(ans);
 
 
-void AddOrOverWrite(Step step)
+(int i, int j, Direction direction)[] GetNextCells((int i, int j, Direction direction) cell) 
 {
-    int boxNum = step.GetHashCode();
-    var slots = map[boxNum];
+    var (i, j, d) = cell;
+    char type = mat[i][j];
 
-    foreach (var s in slots)
+    return (type, cell.direction) switch 
     {
-        if (s == step)
-        {
-            s.Lens = step.Lens;
-            return;
-        }
-    }
+        ('.', Direction.UP) => [(i - 1, j, d)],
+        ('.', Direction.DOWN) => [(i + 1, j, d)],
+        ('.', Direction.LEFT) => [(i, j - 1, d)],
+        ('.', Direction.RIGHT) => [(i, j + 1, d)],
 
-    slots.AddLast(step);
+        ('/', Direction.UP) => [(i, j + 1, Direction.RIGHT)],
+        ('/', Direction.DOWN) => [(i, j - 1, Direction.LEFT)],
+        ('/', Direction.LEFT) => [(i + 1, j, Direction.DOWN)],
+        ('/', Direction.RIGHT) => [(i - 1, j, Direction.UP)],
 
+
+        ('\\', Direction.UP) => [(i, j - 1, Direction.LEFT)],
+        ('\\', Direction.DOWN) => [(i, j + 1, Direction.RIGHT)],
+        ('\\', Direction.LEFT) => [(i - 1, j, Direction.UP)],
+        ('\\', Direction.RIGHT) => [(i + 1, j, Direction.DOWN)],
+
+
+        ('-', Direction.UP or Direction.DOWN) => [(i, j - 1, Direction.LEFT), (i, j + 1, Direction.RIGHT)],
+        ('-', Direction.LEFT) => [(i, j - 1, d)],
+        ('-', Direction.RIGHT) => [(i, j + 1, d)],
+
+
+        ('|', Direction.LEFT or Direction.RIGHT) => [(i - 1, j, Direction.UP), (i + 1, j, Direction.DOWN)],
+        ('|', Direction.DOWN) => [(i + 1, j, d)],
+        ('|', Direction.UP) => [(i - 1, j, d)],
+
+        _ => throw new InvalidOperationException($"{type} {d} ({i},{j})")
+    };
 }
 
-void Remove(Step step)
+
+bool IsValidTransition((int i, int j, Direction direction) cell)
 {
-    int boxNum = step.GetHashCode();
-    var slots = map[boxNum];
-
-    var temp = slots.First;
-
-    while (temp is not null && temp.Value != step)
-    {
-        temp = temp.Next;
-    }
-
-    if (temp is null)
-        return;
-
-    slots.Remove(temp);
+    var (i, j, d) = cell;
+    return i >= 0 && i < n && j >= 0 && j < m && !visited[i, j, (int)d];
 }
 
 
 
-class Step : IEquatable<Step>
+
+enum Direction
 {
-    public string Label { get; set; }
-    public long Lens { get; set; }
-    public Step(string label, long lens)
-    {
-        Label = label;
-        Lens = lens;
-    }
-
-    private const int MOD = 256;
-
-    public bool Equals(Step? other)
-    {
-        if (other is null)
-            return false;
-
-        return this.Label == other.Label;
-    }
-
-    public override int GetHashCode()
-    {
-        int hashValue = 0;
-        foreach (var c in Label)
-        {
-            hashValue += (int)c;
-            hashValue *= 17;
-            hashValue %= MOD;
-        }
-
-        return hashValue;
-    }
-
-    public static bool operator ==(Step step1, Step step2)
-    {
-        return step1.Equals(step2);
-    }
-    public static bool operator !=(Step step1, Step step2)
-    {
-        return !step1.Equals(step2);
-    }
-
-    public override string ToString()
-    {
-        return $"[{this.Label}, {this.Lens}]";
-    }
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT
 }
