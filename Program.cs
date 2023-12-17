@@ -1,123 +1,107 @@
-﻿string path = @"input.txt";
+﻿using System.Diagnostics;
+
+string path = @"input.txt";
 
 
 var lines = File.ReadAllLines(path);
 long ans = 0;
-var mat = lines.Select(line => line.ToCharArray()).ToArray();
+
+var mat = lines.Select(l => l.ToCharArray().Select(c => (c - '0')).ToArray()).ToArray();
 
 int n = mat.Length;
 int m = mat[0].Length;
+// System.Console.WriteLine((n, m));
+
+//          u   r  d  l                     
+int[] di = [-1, 0, 1, 0];
+int[] dj = [0, 1, 0, -1];
+const int STEPLIMIT = 3;
 
 
-
-for (int j = 0; j < m; j++)
-{
-    ans = Math.Max(ans, StartBeam(0, j, Direction.DOWN));
-    ans = Math.Max(ans, StartBeam(n - 1, j, Direction.UP));
-}
+var adjList = new Dictionary<Node, List<(Node node, int cost)>>();
 
 for (int i = 0; i < n; i++)
 {
-    ans = Math.Max(ans, StartBeam(i, 0, Direction.RIGHT));
-    ans = Math.Max(ans, StartBeam(i, m - 1, Direction.LEFT));
-}
-
-
-
-System.Console.WriteLine(ans);
-
-
-long StartBeam(int x, int y, Direction d)
-{
-    var visited = new bool[n, m, 4];
-    var q = new Queue<(int i, int j, Direction direction)>();
-    q.Enqueue((x, y, d));
-    visited[x, y, (int) d] = true;
-
-    while (q.Count != 0)
+    for (int j = 0; j < m; j++)
     {
-        var curCell = q.Dequeue();
-
-        var nextCells = GetNextCells(curCell);
-
-        foreach (var cell in nextCells)
+        for (int d = 0; d < di.Length; d++)
         {
-            if (!IsValidTransition(cell, visited))
-                continue;
+            for (int s = STEPLIMIT - 1; s >= 0; s--)
+            {
+                var node = new Node(i, j, d, s);
+                adjList[node] = [];
 
-            q.Enqueue(cell);
-            visited[cell.i, cell.j, (int) cell.direction] = true;    
+                for (int nd = 0; nd < di.Length; nd++)
+                {
+                    if (Math.Abs(nd - d) == 2)
+                        continue;
+
+                    int sr = d == nd ? s - 1 : STEPLIMIT - 1;
+                    
+                    int ni = i;
+                    int nj = j;
+                    int cost = 0;
+
+                    for (; sr >= 0; sr--)
+                    {
+                        ni += di[nd];
+                        nj += dj[nd];
+
+                        if (ni < 0 || ni >= n || nj < 0 || nj >= m)
+                            continue;
+
+                        cost += mat[ni][nj];
+
+                        var nextNode = new Node(ni, nj, nd, sr);
+                        adjList[node].Add((nextNode, cost));
+                    }
+                    
+                }
+            }
+        
         }
+    }
+}
 
+var distTo = new Dictionary<Node, int>();
+
+
+var pq = new PriorityQueue<Node, int>();
+
+
+// should run the algorithm for both of these two nodes and get the min result
+// but I'm lazy and will just change the code manually
+var rNode = new Node(0, 1, 1, 2); 
+var dNode = new Node(1, 0, 3, 2);
+
+
+pq.Enqueue(dNode, mat[1][0]);
+distTo[dNode] = mat[1][0];
+
+while (pq.Count > 0)
+{
+    pq.TryDequeue(out var curNode, out int dist);
+    if (distTo.ContainsKey(curNode) && distTo[curNode] < dist)
+        continue;
+
+    if (curNode.I == n - 1 && curNode.J == m - 1)
+    {
+        System.Console.WriteLine(dist);
+        break;
     }
 
-    long score = 0;
-    for (int i = 0; i < n; i++)
+    foreach (var edge in adjList[curNode])
     {
-        for (int j = 0; j < m; j++)
-        { 
-            if (Enumerable.Range(0, 4).Any(d => visited[i, j, d]))
-                score++;
+        int newDist = dist + edge.cost;
+
+        if (!distTo.ContainsKey(edge.node) || distTo[edge.node] > newDist)
+        {
+            distTo[edge.node] = newDist;
+            pq.Enqueue(edge.node, newDist);
         }
     }
-
-    return score;
-}
+} 
 
 
 
-
-(int i, int j, Direction direction)[] GetNextCells((int i, int j, Direction direction) cell) 
-{
-    var (i, j, d) = cell;
-    char type = mat[i][j];
-
-    return (type, cell.direction) switch 
-    {
-        ('.', Direction.UP) => [(i - 1, j, d)],
-        ('.', Direction.DOWN) => [(i + 1, j, d)],
-        ('.', Direction.LEFT) => [(i, j - 1, d)],
-        ('.', Direction.RIGHT) => [(i, j + 1, d)],
-
-        ('/', Direction.UP) => [(i, j + 1, Direction.RIGHT)],
-        ('/', Direction.DOWN) => [(i, j - 1, Direction.LEFT)],
-        ('/', Direction.LEFT) => [(i + 1, j, Direction.DOWN)],
-        ('/', Direction.RIGHT) => [(i - 1, j, Direction.UP)],
-
-
-        ('\\', Direction.UP) => [(i, j - 1, Direction.LEFT)],
-        ('\\', Direction.DOWN) => [(i, j + 1, Direction.RIGHT)],
-        ('\\', Direction.LEFT) => [(i - 1, j, Direction.UP)],
-        ('\\', Direction.RIGHT) => [(i + 1, j, Direction.DOWN)],
-
-
-        ('-', Direction.UP or Direction.DOWN) => [(i, j - 1, Direction.LEFT), (i, j + 1, Direction.RIGHT)],
-        ('-', Direction.LEFT) => [(i, j - 1, d)],
-        ('-', Direction.RIGHT) => [(i, j + 1, d)],
-
-
-        ('|', Direction.LEFT or Direction.RIGHT) => [(i - 1, j, Direction.UP), (i + 1, j, Direction.DOWN)],
-        ('|', Direction.DOWN) => [(i + 1, j, d)],
-        ('|', Direction.UP) => [(i - 1, j, d)],
-
-        _ => throw new InvalidOperationException($"{type} {d} ({i},{j})")
-    };
-}
-
-
-bool IsValidTransition((int i, int j, Direction direction) cell, bool[,,] visited)
-{
-    var (i, j, d) = cell;
-    return i >= 0 && i < n && j >= 0 && j < m && !visited[i, j, (int)d];
-}
-
-
-
-
-enum Direction
-{
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT
-}
+record Node(int I, int J, int Direction, int StepsRem);
